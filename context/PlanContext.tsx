@@ -75,7 +75,7 @@ interface TransformedPlan {
 
 export const [PlanProvider, usePlan] = createContextHook(() => {
   const queryClient = useQueryClient();
-  const { userId, getAccessToken } = useAuth();
+  const { userId, getAccessToken, isLoading: isAuthLoading } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<Error | null>(null);
 
@@ -319,7 +319,7 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
 
   return {
     userId,
-    isLoadingUserId: false,
+    isLoadingUserId: isAuthLoading,
     currentPlan,
     isLoadingPlan: latestPlanQuery.isLoading,
     isPlanError: latestPlanQuery.isError,

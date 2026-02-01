@@ -6,7 +6,6 @@ import { Button, SelectionCard, SegmentedControl } from '@/components/ui';
 import { Sparkles, ChevronRight, X, CheckCircle, Calendar, ShoppingCart } from 'lucide-react-native';
 import { usePlan } from '@/context/PlanContext';
 import { useOnboarding } from '@/context/OnboardingContext';
-import { useAuth } from '@/context/AuthContext';
 
 type TimeRange = '1week' | '2weeks';
 type MealCount = 2 | 3 | 4;
@@ -16,9 +15,8 @@ export default function HomeScreen() {
   const [mealCount, setMealCount] = useState<MealCount>(3);
   const [timeRange, setTimeRange] = useState<TimeRange>('1week');
   
-  const { currentPlan, isGenerating, generatePlan, isLoadingPlan, getTotalGroceryCost } = usePlan();
+  const { currentPlan, isGenerating, generatePlan, isLoadingPlan, getTotalGroceryCost, isLoadingUserId, userId } = usePlan();
   const { data: onboardingData } = useOnboarding();
-  useAuth();
 
   const timeRangeOptions: { value: TimeRange; label: string }[] = [
     { value: '1week', label: '1 Week' },
@@ -34,6 +32,12 @@ export default function HomeScreen() {
   const handleGenerate = async () => {
     try {
       console.log('[HomeScreen] Starting plan generation...');
+      console.log('[HomeScreen] User ID:', userId);
+      
+      if (!userId) {
+        Alert.alert('Not Ready', 'Please wait for authentication to complete.');
+        return;
+      }
       console.log('[HomeScreen] Onboarding data:', JSON.stringify(onboardingData, null, 2));
       
       const birthDateStr = onboardingData.birthDate 
@@ -81,7 +85,7 @@ export default function HomeScreen() {
 
   const hasPlan = !!currentPlan && currentPlan.status === 'ready';
 
-  if (isLoadingPlan) {
+  if (isLoadingPlan || isLoadingUserId) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
