@@ -14,31 +14,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAnonymous, setIsAnonymous] = useState(false);
-
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         const { data: { session: existingSession } } = await supabase.auth.getSession();
         
         if (existingSession) {
-          console.log('[Auth] Existing session found');
+          console.log('[Auth] Existing session found for user:', existingSession.user.id);
           setSession(existingSession);
           setUser(existingSession.user);
-          setIsAnonymous(existingSession.user.is_anonymous ?? false);
         } else {
-          console.log('[Auth] No session, trying anonymous sign in...');
-          const { data, error } = await supabase.auth.signInAnonymously();
-          
-          if (error) {
-            console.log('[Auth] Anonymous sign in not available:', error.message);
-            console.log('[Auth] Running in guest mode - user needs to sign up/in to save data');
-          } else if (data.session) {
-            console.log('[Auth] Anonymous session created:', data.user?.id);
-            setSession(data.session);
-            setUser(data.user);
-            setIsAnonymous(true);
-          }
+          console.log('[Auth] No session found - user needs to sign up or sign in');
         }
       } catch (error) {
         console.error('[Auth] Init error:', error);
@@ -53,7 +39,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log('[Auth] Auth state changed:', _event);
       setSession(session);
       setUser(session?.user ?? null);
-      setIsAnonymous(session?.user?.is_anonymous ?? false);
     });
 
     return () => subscription.unsubscribe();
@@ -63,25 +48,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     mutationFn: async ({ email, password, name }: { email: string; password: string; name: string }): Promise<AuthResult> => {
       console.log('[Auth] Signing up:', email);
       
-      if (isAnonymous && user) {
-        console.log('[Auth] Converting anonymous user to permanent account...');
-        const { error } = await supabase.auth.updateUser({
-          email,
-          password,
-          data: { full_name: name },
-        });
-
-        if (error) {
-          console.log('[Auth] Conversion error:', error.message);
-          return { success: false, error: error.message };
-        }
-
-        console.log('[Auth] Anonymous user converted successfully');
-        setIsAnonymous(false);
-        return { success: true, isNewUser: true };
-      }
-
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -94,7 +61,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         return { success: false, error: error.message };
       }
 
-      console.log('[Auth] Sign up success');
+      console.log('[Auth] Sign up success, user:', data.user?.id);
       return { success: true, isNewUser: true };
     },
   });
@@ -113,7 +80,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
 
       console.log('[Auth] Sign in success');
-      setIsAnonymous(false);
       return { success: true, isNewUser: false };
     },
   });
@@ -124,7 +90,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       await supabase.auth.signOut();
       setSession(null);
       setUser(null);
-      setIsAnonymous(false);
       console.log('[Auth] Signed out successfully');
     },
   });
@@ -151,8 +116,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     user,
     userId: user?.id ?? null,
     isLoading,
-    isAuthenticated: !!session,
-    isAnonymous,
+    isAuthenticated: !!session && !!user,
     signUp,
     signIn,
     signOut,

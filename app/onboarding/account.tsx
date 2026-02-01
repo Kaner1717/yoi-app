@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 export default function AccountScreen() {
   const router = useRouter();
   const { data, completeOnboarding, updateData } = useOnboarding();
-  const { signUp, signIn, isSigningUp, isSigningIn, userId } = useAuth();
+  const { signUp, signIn, isSigningUp, isSigningIn } = useAuth();
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -99,24 +99,7 @@ export default function AccountScreen() {
     }
   };
 
-  const handleSkip = async () => {
-    try {
-      setIsUpsertingProfile(true);
-      
-      if (userId) {
-        await upsertProfile(userId, '', '');
-      }
-      
-      completeOnboarding();
-      router.replace('/(tabs)/(home)/home');
-    } catch (error) {
-      console.log('[Account] Skip error:', error);
-      completeOnboarding();
-      router.replace('/(tabs)/(home)/home');
-    } finally {
-      setIsUpsertingProfile(false);
-    }
-  };
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -226,16 +209,7 @@ export default function AccountScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.skipButton}
-            onPress={handleSkip}
-            disabled={isProcessing}
-            testID="skip-button"
-          >
-            <Text style={styles.skipButtonText}>
-              Skip for now
-            </Text>
-          </TouchableOpacity>
+
         </ScrollView>
 
         <View style={styles.footer}>
@@ -327,15 +301,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.semiBold,
     color: theme.colors.text.primary,
   },
-  skipButton: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-  },
-  skipButtonText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.tertiary,
-    textDecorationLine: 'underline',
-  },
+
   footer: {
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
