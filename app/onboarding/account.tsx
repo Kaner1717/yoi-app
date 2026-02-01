@@ -88,6 +88,39 @@ export default function AccountScreen() {
           return;
         }
         
+        // Load existing profile from Supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log('[Account] Loading profile for user:', user.id);
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (profileError) {
+            console.log('[Account] No existing profile found:', profileError.message);
+          } else if (profile) {
+            console.log('[Account] Loaded profile:', JSON.stringify(profile, null, 2));
+            // Update local onboarding data with profile from Supabase
+            updateData({
+              gender: profile.gender,
+              heightCm: profile.height_cm,
+              weightKg: profile.weight_kg,
+              birthDate: profile.birthdate ? new Date(profile.birthdate) : null,
+              goal: profile.goal,
+              dietType: profile.diet_type,
+              allergies: profile.allergies || [],
+              cookingEffort: profile.cooking_effort,
+              weeklyBudget: profile.weekly_budget || 100,
+              measurementUnit: profile.measurement_system || 'imperial',
+              userName: profile.user_name,
+              userEmail: profile.user_email,
+              isOnboardingComplete: true,
+            });
+          }
+        }
+        
         completeOnboarding();
         router.replace('/(tabs)/(home)/home');
       }

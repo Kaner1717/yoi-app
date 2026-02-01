@@ -80,8 +80,8 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
         .limit(1);
 
       if (planError) {
-        console.error('[PlanContext] Plan fetch error:', planError);
-        throw planError;
+        console.error('[PlanContext] Plan fetch error:', JSON.stringify(planError, null, 2));
+        throw new Error(planError.message || 'Failed to fetch plan');
       }
 
       if (!plans || plans.length === 0) {
@@ -99,8 +99,8 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
         .order('day_index', { ascending: true });
 
       if (mealsError) {
-        console.error('[PlanContext] Meals fetch error:', mealsError);
-        throw mealsError;
+        console.error('[PlanContext] Meals fetch error:', JSON.stringify(mealsError, null, 2));
+        throw new Error(mealsError.message || 'Failed to fetch meals');
       }
 
       const mealIds = (meals as DbMeal[]).map(m => m.id);
@@ -113,7 +113,7 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
           .in('meal_id', mealIds);
 
         if (ingsError) {
-          console.error('[PlanContext] Ingredients fetch error:', ingsError);
+          console.error('[PlanContext] Ingredients fetch error:', JSON.stringify(ingsError, null, 2));
         } else {
           ingredients = ings as DbIngredient[];
         }
