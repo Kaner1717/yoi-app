@@ -27,11 +27,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           setUser(existingSession.user);
           setIsAnonymous(existingSession.user.is_anonymous ?? false);
         } else {
-          console.log('[Auth] No session, creating anonymous user...');
+          console.log('[Auth] No session, trying anonymous sign in...');
           const { data, error } = await supabase.auth.signInAnonymously();
           
           if (error) {
-            console.error('[Auth] Anonymous sign in error:', error);
+            console.log('[Auth] Anonymous sign in not available:', error.message);
+            console.log('[Auth] Running in guest mode - user needs to sign up/in to save data');
           } else if (data.session) {
             console.log('[Auth] Anonymous session created:', data.user?.id);
             setSession(data.session);
@@ -121,15 +122,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     mutationFn: async (): Promise<void> => {
       console.log('[Auth] Signing out');
       await supabase.auth.signOut();
-      
-      console.log('[Auth] Creating new anonymous session...');
-      const { error: anonError } = await supabase.auth.signInAnonymously();
-      if (anonError) {
-        console.error('[Auth] Failed to create anonymous session after logout:', anonError);
-      } else {
-        setIsAnonymous(true);
-        console.log('[Auth] New anonymous session created');
-      }
+      setSession(null);
+      setUser(null);
+      setIsAnonymous(false);
+      console.log('[Auth] Signed out successfully');
     },
   });
 
