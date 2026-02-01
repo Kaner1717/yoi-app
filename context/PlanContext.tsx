@@ -1,9 +1,24 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import type { Meal, GroceryItem, IngredientCategory } from '@/types/plan';
+
+function extractSupabaseError(error: unknown): string {
+  if (!error) return 'Unknown error';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  
+  const err = error as { message?: string; details?: string; hint?: string; code?: string };
+  const parts: string[] = [];
+  if (err.message) parts.push(err.message);
+  if (err.details) parts.push(`Details: ${err.details}`);
+  if (err.hint) parts.push(`Hint: ${err.hint}`);
+  if (err.code) parts.push(`Code: ${err.code}`);
+  
+  return parts.length > 0 ? parts.join(' | ') : JSON.stringify(error);
+}
 
 interface DbPlan {
   id: string;
@@ -80,8 +95,9 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
         .limit(1);
 
       if (planError) {
-        console.error('[PlanContext] Plan fetch error:', JSON.stringify(planError, null, 2));
-        throw new Error(planError.message || 'Failed to fetch plan');
+        const errorMsg = extractSupabaseError(planError);
+        console.error('[PlanContext] Plan fetch error:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       if (!plans || plans.length === 0) {
@@ -99,8 +115,9 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
         .order('day_index', { ascending: true });
 
       if (mealsError) {
-        console.error('[PlanContext] Meals fetch error:', JSON.stringify(mealsError, null, 2));
-        throw new Error(mealsError.message || 'Failed to fetch meals');
+        const errorMsg = extractSupabaseError(mealsError);
+        console.error('[PlanContext] Meals fetch error:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       const mealIds = (meals as DbMeal[]).map(m => m.id);
@@ -113,7 +130,7 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
           .in('meal_id', mealIds);
 
         if (ingsError) {
-          console.error('[PlanContext] Ingredients fetch error:', JSON.stringify(ingsError, null, 2));
+          console.error('[PlanContext] Ingredients fetch error:', extractSupabaseError(ingsError));
         } else {
           ingredients = ings as DbIngredient[];
         }
@@ -195,7 +212,14 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
+
+  useEffect(() => {
+    if (latestPlanQuery.error) {
+      console.error('[PlanContext] Query error:', extractSupabaseError(latestPlanQuery.error));
+    }
+  }, [latestPlanQuery.error]);
 
   const generatePlan = useCallback(async (
     mealsPerDay: 2 | 3 | 4,
