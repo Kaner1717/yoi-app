@@ -231,15 +231,13 @@ serve(async (req) => {
       throw new Error("Missing authorization header");
     }
 
-    // Create client with user's auth token
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const jwt = authHeader.replace("Bearer ", "");
 
-    // Get the user from the token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    // Create admin client for database operations (bypasses RLS)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Validate user's JWT token
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(jwt);
 
     if (userError || !user) {
       console.error("[generate_plan] Auth error:", userError);
@@ -261,7 +259,7 @@ serve(async (req) => {
     }
 
     // Load user profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("*")
       .eq("user_id", userId)
@@ -278,7 +276,7 @@ serve(async (req) => {
     console.log("[generate_plan] Target calories:", targetCalories);
 
     // Create plan record with 'generating' status
-    const { data: planRecord, error: planError } = await supabase
+    const { data: planRecord, error: planError } = await supabaseAdmin
       .from("plans")
       .insert({
         user_id: userId,
@@ -342,7 +340,7 @@ serve(async (req) => {
         );
       } else {
         // Mark plan as failed
-        await supabase
+        await supabaseAdmin
           .from("plans")
           .update({ status: "failed", generation_notes: String(genError) })
           .eq("id", planId);
@@ -361,7 +359,7 @@ serve(async (req) => {
     // Save meals and ingredients
     for (const day of generatedPlan.days) {
       for (const meal of day.meals) {
-        const { data: mealRecord, error: mealError } = await supabase
+        const { data: mealRecord, error: mealError } = await supabaseAdmin
           .from("plan_meals")
           .insert({
             plan_id: planId,
@@ -393,7 +391,7 @@ serve(async (req) => {
           est_price: ing.est_price,
         }));
 
-        const { error: ingError } = await supabase
+        const { error: ingError } = await supabaseAdmin
           .from("meal_ingredients")
           .insert(ingredients);
 
@@ -404,7 +402,7 @@ serve(async (req) => {
     }
 
     // Update plan status to ready
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("plans")
       .update({
         status: "ready",
