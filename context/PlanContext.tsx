@@ -263,8 +263,18 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate plan');
+        let errorMessage = 'Failed to generate plan';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('[PlanContext] Edge function error response:', JSON.stringify(errorData));
+        } catch (parseError) {
+          const textError = await response.text();
+          console.error('[PlanContext] Edge function raw error:', textError);
+          errorMessage = textError || `HTTP ${response.status}`;
+        }
+        console.error('[PlanContext] Edge function failed with status:', response.status, errorMessage);
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
