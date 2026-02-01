@@ -216,6 +216,10 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
   });
 
   useEffect(() => {
+    console.log('[PlanContext] State update - userId:', userId, 'isAuthLoading:', isAuthLoading, 'planStatus:', latestPlanQuery.status);
+  }, [userId, isAuthLoading, latestPlanQuery.status]);
+
+  useEffect(() => {
     if (latestPlanQuery.error) {
       console.error('[PlanContext] Query error:', extractSupabaseError(latestPlanQuery.error));
     }
@@ -245,11 +249,15 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
     
     try {
       const accessToken = await getAccessToken();
+      console.log('[PlanContext] Access token available:', !!accessToken);
+      
       if (!accessToken) {
-        throw new Error('No access token available');
+        throw new Error('No access token available - please sign in again');
       }
 
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      console.log('[PlanContext] Calling edge function at:', `${supabaseUrl}/functions/v1/generate_plan`);
+      
       const response = await fetch(`${supabaseUrl}/functions/v1/generate_plan`, {
         method: 'POST',
         headers: {
@@ -268,7 +276,7 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
           console.error('[PlanContext] Edge function error response:', JSON.stringify(errorData));
-        } catch (parseError) {
+        } catch {
           const textError = await response.text();
           console.error('[PlanContext] Edge function raw error:', textError);
           errorMessage = textError || `HTTP ${response.status}`;

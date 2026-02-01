@@ -25,8 +25,28 @@ export default function AccountScreen() {
   const isLoginValid = email.trim().length > 0 && password.length >= 6;
   const isProcessing = isSigningUp || isSigningIn || isUpsertingProfile;
 
+  const waitForSession = async (maxWaitMs: number = 5000): Promise<boolean> => {
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWaitMs) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log('[Account] Session ready:', session.user.id);
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    console.error('[Account] Timeout waiting for session');
+    return false;
+  };
+
   const upsertProfile = async (uid: string, userName: string, userEmail: string) => {
     console.log('[Account] Upserting profile for user:', uid);
+    
+    // Ensure session is ready before upserting
+    const sessionReady = await waitForSession();
+    if (!sessionReady) {
+      throw new Error('Session not established - please try again');
+    }
     
     const profileData = {
       user_id: uid,
@@ -46,16 +66,20 @@ export default function AccountScreen() {
 
     console.log('[Account] Profile data:', JSON.stringify(profileData, null, 2));
 
-    const { error } = await supabase
+    const { data: upsertedData, error } = await supabase
       .from('profiles')
-      .upsert(profileData, { onConflict: 'user_id' });
+      .upsert(profileData, { onConflict: 'user_id' })
+      .select();
 
     if (error) {
-      console.error('[Account] Profile upsert error:', error);
+      console.error('[Account] Profile upsert error:', JSON.stringify(error, null, 2));
+      console.error('[Account] Error code:', error.code);
+      console.error('[Account] Error message:', error.message);
+      console.error('[Account] Error details:', error.details);
       throw error;
     }
 
-    console.log('[Account] Profile upserted successfully');
+    console.log('[Account] Profile upserted successfully:', JSON.stringify(upsertedData, null, 2));
   };
 
   const handleContinue = async () => {
@@ -74,9 +98,26 @@ export default function AccountScreen() {
           userEmail: email.trim(),
         });
 
-        const { data: { user } } = await supabase.auth.getUser();
+        // Wait a moment for auth state to propagate, then get user
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+        console.log('[Account] Got user after signup:', user?.id, 'error:', getUserError?.message);
+        
         if (user) {
-          await upsertProfile(user.id, name.trim(), email.trim());
+          try {
+            await upsertProfile(user.id, name.trim(), email.trim());
+          } catch (profileError) {
+            console.error('[Account] Profile creation failed:', profileError);
+            // Don't block navigation - profile can be created later
+            Alert.alert(
+              'Profile Save Issue',
+              'Account created but profile sync failed. Your preferences will sync on next login.',
+              [{ text: 'OK' }]
+            );
+          }
+        } else {
+          console.error('[Account] No user after signup - this should not happen');
         }
         
         completeOnboarding();
