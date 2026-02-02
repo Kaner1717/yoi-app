@@ -41,6 +41,7 @@ export default function AccountScreen() {
 
   const upsertProfile = async (uid: string, userName: string, userEmail: string) => {
     console.log('[Account] Upserting profile for user:', uid);
+    console.log('[Account] Current onboarding data state:', JSON.stringify(data, null, 2));
     
     // Ensure session is ready before upserting
     const sessionReady = await waitForSession();
@@ -64,22 +65,41 @@ export default function AccountScreen() {
       user_email: userEmail,
     };
 
-    console.log('[Account] Profile data:', JSON.stringify(profileData, null, 2));
+    console.log('[Account] Profile data to save:', JSON.stringify(profileData, null, 2));
 
-    const { data: upsertedData, error } = await supabase
+    // Use UPDATE instead of upsert since trigger already created the row
+    const { data: updatedData, error } = await supabase
       .from('profiles')
-      .upsert(profileData, { onConflict: 'user_id' })
+      .update({
+        gender: profileData.gender,
+        height_cm: profileData.height_cm,
+        weight_kg: profileData.weight_kg,
+        birthdate: profileData.birthdate,
+        goal: profileData.goal,
+        diet_type: profileData.diet_type,
+        allergies: profileData.allergies,
+        cooking_effort: profileData.cooking_effort,
+        weekly_budget: profileData.weekly_budget,
+        measurement_system: profileData.measurement_system,
+        user_name: profileData.user_name,
+        user_email: profileData.user_email,
+      })
+      .eq('user_id', uid)
       .select();
 
     if (error) {
-      console.error('[Account] Profile upsert error:', JSON.stringify(error, null, 2));
+      console.error('[Account] Profile update error:', JSON.stringify(error, null, 2));
       console.error('[Account] Error code:', error.code);
       console.error('[Account] Error message:', error.message);
       console.error('[Account] Error details:', error.details);
       throw error;
     }
 
-    console.log('[Account] Profile upserted successfully:', JSON.stringify(upsertedData, null, 2));
+    console.log('[Account] Profile updated successfully:', JSON.stringify(updatedData, null, 2));
+    
+    if (!updatedData || updatedData.length === 0) {
+      console.warn('[Account] No rows updated - profile may not exist yet');
+    }
   };
 
   const handleContinue = async () => {
