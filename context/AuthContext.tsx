@@ -60,7 +60,15 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         });
 
         if (error) {
-          console.log('[Auth] Sign up error:', error.message);
+          console.log('[Auth] Sign up error:', error.message, error.status);
+          
+          if (error.message.toLowerCase().includes('rate limit')) {
+            return { 
+              success: false, 
+              error: 'Email sending limit reached. This is a temporary project limit. Please wait a few minutes and try again, or contact support.' 
+            };
+          }
+          
           return { success: false, error: error.message };
         }
 
