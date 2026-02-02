@@ -48,21 +48,30 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     mutationFn: async ({ email, password, name }: { email: string; password: string; name: string }): Promise<AuthResult> => {
       console.log('[Auth] Signing up:', email);
       
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: name },
-        },
-      });
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name },
+          },
+        });
 
-      if (error) {
-        console.log('[Auth] Sign up error:', error.message);
-        return { success: false, error: error.message };
+        if (error) {
+          console.log('[Auth] Sign up error:', error.message);
+          return { success: false, error: error.message };
+        }
+
+        console.log('[Auth] Sign up success, user:', data.user?.id);
+        return { success: true, isNewUser: true };
+      } catch (err) {
+        console.error('[Auth] Sign up network error:', err);
+        const message = err instanceof Error ? err.message : 'Network error';
+        if (message.includes('fetch') || message.includes('network')) {
+          return { success: false, error: 'Unable to connect to server. Please check your internet connection.' };
+        }
+        return { success: false, error: message };
       }
-
-      console.log('[Auth] Sign up success, user:', data.user?.id);
-      return { success: true, isNewUser: true };
     },
   });
 
