@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '@/constants/theme';
 import { SegmentedControl } from '@/components/ui';
 import { ShoppingCart, UtensilsCrossed, ChevronDown, ChevronUp, Flame, Clock } from 'lucide-react-native';
-import { usePlan, useGroceries } from '@/context/PlanContext';
+import { usePlan } from '@/context/PlanContext';
 import type { Meal, IngredientCategory } from '@/types/plan';
 
 type FoodTab = 'meals' | 'groceries';
@@ -25,8 +25,7 @@ export default function FoodScreen() {
   const [expandedMeals, setExpandedMeals] = useState<Set<string>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(CATEGORY_ORDER));
   
-  const { currentPlan, isLoadingPlan } = usePlan();
-  const { groceriesByCategory, totalCost } = useGroceries();
+  const { currentPlan, isLoadingPlan, groceriesByCategory, totalGroceryCost } = usePlan();
 
   const tabOptions: { value: FoodTab; label: string }[] = [
     { value: 'meals', label: 'Meals' },
@@ -188,7 +187,7 @@ export default function FoodScreen() {
       <View>
         <View style={styles.groceryHeader}>
           <Text style={styles.groceryTotal}>Estimated Total</Text>
-          <Text style={styles.groceryTotalValue}>${totalCost.toFixed(2)}</Text>
+          <Text style={styles.groceryTotalValue}>${totalGroceryCost.toFixed(2)}</Text>
         </View>
 
         {CATEGORY_ORDER.map(category => {

@@ -325,6 +325,9 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
     return currentPlan.groceries.reduce((sum, item) => sum + item.estPrice, 0);
   }, [currentPlan]);
 
+  const groceriesByCategory = getGroceriesByCategory();
+  const totalGroceryCost = getTotalGroceryCost();
+
   return {
     userId,
     isLoadingUserId: isAuthLoading,
@@ -338,20 +341,11 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
     getMealsForDay,
     getGroceriesByCategory,
     getTotalGroceryCost,
+    groceriesByCategory,
+    totalGroceryCost,
+    groceries: currentPlan?.groceries || [],
     refetchPlan: latestPlanQuery.refetch,
   };
 });
 
-export function useMealsForDay(dayIndex: number) {
-  const { getMealsForDay } = usePlan();
-  return getMealsForDay(dayIndex);
-}
 
-export function useGroceries() {
-  const { getGroceriesByCategory, getTotalGroceryCost, currentPlan } = usePlan();
-  return {
-    groceriesByCategory: getGroceriesByCategory(),
-    totalCost: getTotalGroceryCost(),
-    groceries: currentPlan?.groceries || [],
-  };
-}
