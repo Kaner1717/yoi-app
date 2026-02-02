@@ -67,24 +67,10 @@ export default function AccountScreen() {
 
     console.log('[Account] Profile data to save:', JSON.stringify(profileData, null, 2));
 
-    // Use UPDATE instead of upsert since trigger already created the row
+    // Use upsert to handle both insert and update cases
     const { data: updatedData, error } = await supabase
       .from('profiles')
-      .update({
-        gender: profileData.gender,
-        height_cm: profileData.height_cm,
-        weight_kg: profileData.weight_kg,
-        birthdate: profileData.birthdate,
-        goal: profileData.goal,
-        diet_type: profileData.diet_type,
-        allergies: profileData.allergies,
-        cooking_effort: profileData.cooking_effort,
-        weekly_budget: profileData.weekly_budget,
-        measurement_system: profileData.measurement_system,
-        user_name: profileData.user_name,
-        user_email: profileData.user_email,
-      })
-      .eq('user_id', uid)
+      .upsert(profileData, { onConflict: 'user_id' })
       .select();
 
     if (error) {
@@ -98,7 +84,9 @@ export default function AccountScreen() {
     console.log('[Account] Profile updated successfully:', JSON.stringify(updatedData, null, 2));
     
     if (!updatedData || updatedData.length === 0) {
-      console.warn('[Account] No rows updated - profile may not exist yet');
+      console.warn('[Account] No rows returned after upsert');
+    } else {
+      console.log('[Account] Profile saved with', updatedData.length, 'row(s)');
     }
   };
 
