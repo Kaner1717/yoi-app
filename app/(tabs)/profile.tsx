@@ -49,7 +49,7 @@ const unitOptions: { value: MeasurementUnit; label: string }[] = [
 export default function ProfileScreen() {
   const { data, updateData, resetOnboarding } = useOnboarding();
   const { userId, currentPlan } = usePlan();
-  const { signOut, isSigningOut, userId: authUserId } = useAuth();
+  const { signOut, isSigningOut, deleteAccount, isDeletingAccount, userId: authUserId } = useAuth();
   const router = useRouter();
   const [editModal, setEditModal] = useState<EditModal>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -262,8 +262,8 @@ export default function ProfileScreen() {
           onPress: async () => {
             try {
               console.log('[Profile] Deleting account...');
-              await signOut();
-              console.log('[Profile] Sign out complete, resetting onboarding...');
+              await deleteAccount();
+              console.log('[Profile] Account deleted, resetting onboarding...');
               resetOnboarding();
               console.log('[Profile] Navigating to onboarding...');
               router.replace('/onboarding');
@@ -457,9 +457,10 @@ export default function ProfileScreen() {
             style={styles.deleteAccountButton} 
             onPress={handleDeleteAccount} 
             activeOpacity={0.7}
+            disabled={isDeletingAccount}
           >
             <Trash2 size={18} color={theme.colors.error} />
-            <Text style={styles.deleteAccountText}>Delete Account</Text>
+            <Text style={styles.deleteAccountText}>{isDeletingAccount ? 'Deleting...' : 'Delete Account'}</Text>
           </TouchableOpacity>
         </View>
 

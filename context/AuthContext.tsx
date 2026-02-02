@@ -111,6 +111,49 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     },
   });
 
+  const deleteAccountMutation = useMutation({
+    mutationFn: async (): Promise<void> => {
+      if (!user) {
+        throw new Error('No user logged in');
+      }
+      
+      console.log('[Auth] Deleting account for user:', user.id);
+      
+      // Delete all user data (cascade will handle related tables)
+      // Order matters due to foreign key constraints
+      
+      // Delete plans (this will cascade to plan_meals, meal_ingredients, grocery_items)
+      const { error: plansError } = await supabase
+        .from('plans')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (plansError) {
+        console.log('[Auth] Error deleting plans:', plansError.message);
+      } else {
+        console.log('[Auth] Deleted user plans');
+      }
+      
+      // Delete profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (profileError) {
+        console.log('[Auth] Error deleting profile:', profileError.message);
+      } else {
+        console.log('[Auth] Deleted user profile');
+      }
+      
+      // Sign out after deleting data
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      console.log('[Auth] Account deleted and signed out');
+    },
+  });
+
   const signUp = async (email: string, password: string, name: string) => {
     return signUpMutation.mutateAsync({ email, password, name });
   };
@@ -121,6 +164,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const signOut = async () => {
     return signOutMutation.mutateAsync();
+  };
+
+  const deleteAccount = async () => {
+    return deleteAccountMutation.mutateAsync();
   };
 
   const getAccessToken = async (): Promise<string | null> => {
@@ -137,9 +184,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     signUp,
     signIn,
     signOut,
+    deleteAccount,
     getAccessToken,
     isSigningUp: signUpMutation.isPending,
     isSigningIn: signInMutation.isPending,
     isSigningOut: signOutMutation.isPending,
+    isDeletingAccount: deleteAccountMutation.isPending,
   };
 });
