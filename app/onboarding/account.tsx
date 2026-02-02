@@ -8,6 +8,7 @@ import { Button } from '@/components/ui';
 import { theme } from '@/constants/theme';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { trpc } from '@/lib/trpc';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -25,69 +26,33 @@ export default function AccountScreen() {
   const isLoginValid = email.trim().length > 0 && password.length >= 6;
   const isProcessing = isSigningUp || isSigningIn || isUpsertingProfile;
 
-  const waitForSession = async (maxWaitMs: number = 5000): Promise<boolean> => {
-    const startTime = Date.now();
-    while (Date.now() - startTime < maxWaitMs) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.log('[Account] Session ready:', session.user.id);
-        return true;
-      }
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
-    console.error('[Account] Timeout waiting for session');
-    return false;
-  };
+  const profileUpsertMutation = trpc.profile.upsert.useMutation();
 
-  const upsertProfile = async (uid: string, userName: string, userEmail: string) => {
-    console.log('[Account] Upserting profile for user:', uid);
+  const upsertProfileDirect = async (uid: string, userName: string, userEmail: string) => {
+    console.log('[Account] Upserting profile via tRPC for user:', uid);
     console.log('[Account] Current onboarding data state:', JSON.stringify(data, null, 2));
     
-    // Ensure session is ready before upserting
-    const sessionReady = await waitForSession();
-    if (!sessionReady) {
-      throw new Error('Session not established - please try again');
-    }
-    
     const profileData = {
-      user_id: uid,
+      userId: uid,
       gender: data.gender,
-      height_cm: data.heightCm,
-      weight_kg: data.weightKg,
-      birthdate: data.birthDate ? new Date(data.birthDate).toISOString().split('T')[0] : null,
+      heightCm: data.heightCm,
+      weightKg: data.weightKg,
+      birthDate: data.birthDate ? new Date(data.birthDate).toISOString().split('T')[0] : null,
       goal: data.goal,
-      diet_type: data.dietType,
-      allergies: data.allergies,
-      cooking_effort: data.cookingEffort,
-      weekly_budget: data.weeklyBudget,
-      measurement_system: data.measurementUnit,
-      user_name: userName,
-      user_email: userEmail,
+      dietType: data.dietType,
+      allergies: data.allergies || [],
+      cookingEffort: data.cookingEffort,
+      weeklyBudget: data.weeklyBudget || 100,
+      measurementUnit: data.measurementUnit || 'imperial',
+      userName: userName,
+      userEmail: userEmail,
     };
 
-    console.log('[Account] Profile data to save:', JSON.stringify(profileData, null, 2));
+    console.log('[Account] Profile data to save via tRPC:', JSON.stringify(profileData, null, 2));
 
-    // Use upsert to handle both insert and update cases
-    const { data: updatedData, error } = await supabase
-      .from('profiles')
-      .upsert(profileData, { onConflict: 'user_id' })
-      .select();
-
-    if (error) {
-      console.error('[Account] Profile update error:', JSON.stringify(error, null, 2));
-      console.error('[Account] Error code:', error.code);
-      console.error('[Account] Error message:', error.message);
-      console.error('[Account] Error details:', error.details);
-      throw error;
-    }
-
-    console.log('[Account] Profile updated successfully:', JSON.stringify(updatedData, null, 2));
-    
-    if (!updatedData || updatedData.length === 0) {
-      console.warn('[Account] No rows returned after upsert');
-    } else {
-      console.log('[Account] Profile saved with', updatedData.length, 'row(s)');
-    }
+    const result = await profileUpsertMutation.mutateAsync(profileData);
+    console.log('[Account] Profile saved successfully via tRPC:', JSON.stringify(result, null, 2));
+    return result;
   };
 
   const handleContinue = async () => {
@@ -113,15 +78,13 @@ export default function AccountScreen() {
           userEmail: email.trim(),
         });
 
-        // Wait a moment for auth state to propagate, then get user
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Use the userId returned from signup directly
+        const userId = result.userId;
+        console.log('[Account] Got userId from signup result:', userId);
         
-        const { data: { user }, error: getUserError } = await supabase.auth.getUser();
-        console.log('[Account] Got user after signup:', user?.id, 'error:', getUserError?.message);
-        
-        if (user) {
+        if (userId) {
           try {
-            await upsertProfile(user.id, name.trim(), email.trim());
+            await upsertProfileDirect(userId, name.trim(), email.trim());
           } catch (profileError) {
             console.error('[Account] Profile creation failed:', profileError);
             // Don't block navigation - profile can be created later
@@ -132,7 +95,7 @@ export default function AccountScreen() {
             );
           }
         } else {
-          console.error('[Account] No user after signup - this should not happen');
+          console.error('[Account] No userId in signup result');
         }
         
         completeOnboarding();

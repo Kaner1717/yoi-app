@@ -8,6 +8,7 @@ type AuthResult = {
   success: boolean;
   error?: string;
   isNewUser?: boolean;
+  userId?: string;
 };
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -69,7 +70,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
         console.log('[Auth] Sign up success, user:', data.user?.id);
         console.log('[Auth] Session:', data.session ? 'Created' : 'Not created (email confirmation needed)');
-        return { success: true, isNewUser: true };
+        
+        // If session was created, update state immediately
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.user);
+        }
+        
+        return { success: true, isNewUser: true, userId: data.user?.id };
       } catch (err: any) {
         console.error('[Auth] Sign up caught exception:', err);
         console.error('[Auth] Exception type:', typeof err);
