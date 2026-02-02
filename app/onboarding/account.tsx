@@ -83,12 +83,19 @@ export default function AccountScreen() {
   };
 
   const handleContinue = async () => {
+    console.log('[Account] handleContinue called - isSignUp:', isSignUp);
+    console.log('[Account] Form values - email:', email.trim(), 'name:', name.trim(), 'passwordLength:', password.length);
+    
     try {
       setIsUpsertingProfile(true);
       
       if (isSignUp) {
+        console.log('[Account] Starting sign up process...');
         const result = await signUp(email.trim(), password, name.trim());
+        console.log('[Account] Sign up result:', JSON.stringify(result));
+        
         if (!result.success) {
+          console.log('[Account] Sign up failed with error:', result.error);
           Alert.alert('Sign Up Failed', result.error || 'An error occurred');
           return;
         }

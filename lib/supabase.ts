@@ -1,16 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim().replace(/\/$/, '');
+const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
 
-console.log('[Supabase] Initializing with URL:', supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING');
-console.log('[Supabase] Anon key present:', !!supabaseAnonKey);
+console.log('[Supabase] ====== INIT DEBUG ======');
+console.log('[Supabase] URL value:', JSON.stringify(supabaseUrl));
+console.log('[Supabase] URL length:', supabaseUrl.length);
+console.log('[Supabase] Key length:', supabaseAnonKey.length);
+console.log('[Supabase] Key starts with:', supabaseAnonKey.substring(0, 20));
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[Supabase] ERROR: Missing environment variables!');
-  console.error('[Supabase] EXPO_PUBLIC_SUPABASE_URL:', supabaseUrl || 'NOT SET');
-  console.error('[Supabase] EXPO_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'SET' : 'NOT SET');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -20,4 +21,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+});
+
+// Test connection on init
+supabase.auth.getSession().then(({ data, error }) => {
+  if (error) {
+    console.error('[Supabase] Connection test FAILED:', error.message);
+  } else {
+    console.log('[Supabase] Connection test SUCCESS');
+  }
+}).catch(err => {
+  console.error('[Supabase] Connection test ERROR:', err);
 });

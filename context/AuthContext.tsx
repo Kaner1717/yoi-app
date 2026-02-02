@@ -49,6 +49,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log('[Auth] Signing up:', email);
       
       try {
+        console.log('[Auth] Attempting sign up with email:', email);
+        console.log('[Auth] Supabase client URL check...');
+        
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -58,19 +61,24 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         });
 
         if (error) {
-          console.log('[Auth] Sign up error:', error.message);
+          console.log('[Auth] Sign up error code:', error.status);
+          console.log('[Auth] Sign up error name:', error.name);
+          console.log('[Auth] Sign up error message:', error.message);
           return { success: false, error: error.message };
         }
 
         console.log('[Auth] Sign up success, user:', data.user?.id);
+        console.log('[Auth] Session:', data.session ? 'Created' : 'Not created (email confirmation needed)');
         return { success: true, isNewUser: true };
-      } catch (err) {
-        console.error('[Auth] Sign up network error:', err);
+      } catch (err: any) {
+        console.error('[Auth] Sign up caught exception:', err);
+        console.error('[Auth] Exception type:', typeof err);
+        console.error('[Auth] Exception name:', err?.name);
+        console.error('[Auth] Exception message:', err?.message);
+        console.error('[Auth] Exception stack:', err?.stack);
+        
         const message = err instanceof Error ? err.message : 'Network error';
-        if (message.includes('fetch') || message.includes('network')) {
-          return { success: false, error: 'Unable to connect to server. Please check your internet connection.' };
-        }
-        return { success: false, error: message };
+        return { success: false, error: `Connection failed: ${message}` };
       }
     },
   });
