@@ -9,6 +9,7 @@ type AuthResult = {
   error?: string;
   isNewUser?: boolean;
   userId?: string;
+  needsVerification?: boolean;
 };
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -47,12 +48,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const signUpMutation = useMutation({
     mutationFn: async ({ email, password, name }: { email: string; password: string; name: string }): Promise<AuthResult> => {
-      console.log('[Auth] Signing up:', email);
+      console.log('[Auth] Signing up with OTP:', email);
       
       try {
-        console.log('[Auth] Attempting sign up with email:', email);
-        console.log('[Auth] Supabase client URL check...');
-        
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -62,16 +60,46 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         });
 
         if (error) {
-          console.log('[Auth] Sign up error code:', error.status);
-          console.log('[Auth] Sign up error name:', error.name);
-          console.log('[Auth] Sign up error message:', error.message);
+          console.log('[Auth] Sign up error:', error.message);
           return { success: false, error: error.message };
         }
 
         console.log('[Auth] Sign up success, user:', data.user?.id);
-        console.log('[Auth] Session:', data.session ? 'Created' : 'Not created (email confirmation needed)');
+        console.log('[Auth] Session:', data.session ? 'Created' : 'Needs OTP verification');
         
-        // If session was created, update state immediately
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.user);
+          return { success: true, isNewUser: true, userId: data.user?.id };
+        }
+        
+        return { success: true, isNewUser: true, userId: data.user?.id, needsVerification: true };
+      } catch (err: any) {
+        console.error('[Auth] Sign up exception:', err);
+        const message = err instanceof Error ? err.message : 'Network error';
+        return { success: false, error: `Connection failed: ${message}` };
+      }
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async ({ email, token }: { email: string; token: string }): Promise<AuthResult> => {
+      console.log('[Auth] Verifying OTP for:', email);
+      
+      try {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email,
+          token,
+          type: 'signup',
+        });
+
+        if (error) {
+          console.log('[Auth] OTP verification error:', error.message);
+          return { success: false, error: error.message };
+        }
+
+        console.log('[Auth] OTP verified, user:', data.user?.id);
+        
         if (data.session) {
           setSession(data.session);
           setUser(data.user);
@@ -79,14 +107,34 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         return { success: true, isNewUser: true, userId: data.user?.id };
       } catch (err: any) {
-        console.error('[Auth] Sign up caught exception:', err);
-        console.error('[Auth] Exception type:', typeof err);
-        console.error('[Auth] Exception name:', err?.name);
-        console.error('[Auth] Exception message:', err?.message);
-        console.error('[Auth] Exception stack:', err?.stack);
-        
+        console.error('[Auth] OTP verification exception:', err);
         const message = err instanceof Error ? err.message : 'Network error';
-        return { success: false, error: `Connection failed: ${message}` };
+        return { success: false, error: `Verification failed: ${message}` };
+      }
+    },
+  });
+
+  const resendOtpMutation = useMutation({
+    mutationFn: async ({ email }: { email: string }): Promise<AuthResult> => {
+      console.log('[Auth] Resending OTP to:', email);
+      
+      try {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email,
+        });
+
+        if (error) {
+          console.log('[Auth] Resend OTP error:', error.message);
+          return { success: false, error: error.message };
+        }
+
+        console.log('[Auth] OTP resent successfully');
+        return { success: true };
+      } catch (err: any) {
+        console.error('[Auth] Resend OTP exception:', err);
+        const message = err instanceof Error ? err.message : 'Network error';
+        return { success: false, error: `Resend failed: ${message}` };
       }
     },
   });
@@ -166,6 +214,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return signUpMutation.mutateAsync({ email, password, name });
   };
 
+  const verifyOtp = async (email: string, token: string) => {
+    return verifyOtpMutation.mutateAsync({ email, token });
+  };
+
+  const resendOtp = async (email: string) => {
+    return resendOtpMutation.mutateAsync({ email });
+  };
+
   const signIn = async (email: string, password: string) => {
     return signInMutation.mutateAsync({ email, password });
   };
@@ -193,10 +249,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     signIn,
     signOut,
     deleteAccount,
+    verifyOtp,
+    resendOtp,
     getAccessToken,
     isSigningUp: signUpMutation.isPending,
     isSigningIn: signInMutation.isPending,
     isSigningOut: signOutMutation.isPending,
     isDeletingAccount: deleteAccountMutation.isPending,
+    isVerifyingOtp: verifyOtpMutation.isPending,
+    isResendingOtp: resendOtpMutation.isPending,
   };
 });
