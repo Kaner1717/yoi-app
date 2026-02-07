@@ -36,7 +36,7 @@ export interface OnboardingData {
 
 export const defaultOnboardingData: OnboardingData = {
   gender: null,
-  measurementUnit: 'metric',
+  measurementUnit: 'imperial',
   heightCm: 170,
   weightKg: 70,
   birthDate: null,
