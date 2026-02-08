@@ -25,7 +25,7 @@ export default function AccountScreen() {
   const [isSignUp, setIsSignUp] = useState(true);
   const [isUpsertingProfile, setIsUpsertingProfile] = useState(false);
   
-  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '', '', '']);
   const otpInputRefs = useRef<(TextInput | null)[]>([]);
 
   const isFormValid = name.trim().length > 0 && email.trim().length > 0 && password.length >= 6;
@@ -62,15 +62,15 @@ export default function AccountScreen() {
 
   const handleOtpChange = (value: string, index: number) => {
     if (value.length > 1) {
-      const digits = value.split('').slice(0, 6);
+      const digits = value.split('').slice(0, 8);
       const newOtp = [...otpCode];
       digits.forEach((digit, i) => {
-        if (index + i < 6) {
+        if (index + i < 8) {
           newOtp[index + i] = digit;
         }
       });
       setOtpCode(newOtp);
-      const nextIndex = Math.min(index + digits.length, 5);
+      const nextIndex = Math.min(index + digits.length, 7);
       otpInputRefs.current[nextIndex]?.focus();
       return;
     }
@@ -79,7 +79,7 @@ export default function AccountScreen() {
     newOtp[index] = value;
     setOtpCode(newOtp);
 
-    if (value && index < 5) {
+    if (value && index < 7) {
       otpInputRefs.current[index + 1]?.focus();
     }
   };
@@ -107,7 +107,7 @@ export default function AccountScreen() {
         setStep('verification');
         Alert.alert(
           'Check Your Email',
-          `We sent a 6-digit verification code to ${email.trim()}`,
+          `We sent an 8-digit verification code to ${email.trim()}`,
           [{ text: 'OK' }]
         );
       } else {
@@ -244,7 +244,7 @@ export default function AccountScreen() {
 
   const handleBackToCredentials = () => {
     setStep('credentials');
-    setOtpCode(['', '', '', '', '', '']);
+    setOtpCode(['', '', '', '', '', '', '', '']);
   };
 
   if (step === 'verification') {
@@ -270,7 +270,7 @@ export default function AccountScreen() {
             <View style={styles.header}>
               <Text style={styles.title}>Verify your email</Text>
               <Text style={styles.subtitle}>
-                Enter the 6-digit code we sent to{'\n'}
+                Enter the 8-digit code we sent to{'\n'}
                 <Text style={styles.emailText}>{email.trim()}</Text>
               </Text>
             </View>
@@ -288,7 +288,7 @@ export default function AccountScreen() {
                   onChangeText={(value) => handleOtpChange(value, index)}
                   onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, index)}
                   keyboardType="number-pad"
-                  maxLength={6}
+                  maxLength={8}
                   selectTextOnFocus
                   testID={`otp-input-${index}`}
                 />
@@ -534,17 +534,17 @@ const styles = StyleSheet.create({
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
     marginVertical: theme.spacing.xl,
   },
   otpInput: {
-    width: 48,
-    height: 56,
+    width: 40,
+    height: 50,
     borderRadius: theme.borderRadius.md,
     borderWidth: 2,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600' as const,
     textAlign: 'center' as const,
     color: theme.colors.text.primary,
