@@ -36,23 +36,29 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const fetchWithRetry = async (
   url: RequestInfo | URL,
   options?: RequestInit,
-  maxRetries = 2,
-  baseDelay = 3000
+  maxRetries = 3,
+  baseDelay = 2000
 ): Promise<Response> => {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[tRPC] Fetch attempt ${attempt + 1}/${maxRetries + 1}:`, url);
+      console.log(`[tRPC] Fetch attempt ${attempt + 1}/${maxRetries + 1}:`, typeof url === 'string' ? url : url.toString());
+      console.log(`[tRPC] Method: ${options?.method || 'GET'}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       const response = await fetch(url, {
         ...options,
+        signal: controller.signal,
         headers: {
           ...options?.headers,
           'Content-Type': 'application/json',
         },
       });
       
+      clearTimeout(timeoutId);
       console.log('[tRPC] Response status:', response.status);
       
       if (response.status === 429) {
@@ -75,10 +81,11 @@ const fetchWithRetry = async (
       return response;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`[tRPC] Fetch attempt ${attempt + 1} failed:`, lastError.message);
+      const isAbort = lastError.name === 'AbortError';
+      console.error(`[tRPC] Fetch attempt ${attempt + 1} failed:`, lastError.message, isAbort ? '(timeout)' : '');
       
       if (attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt);
+        const delay = isAbort ? baseDelay : baseDelay * Math.pow(2, attempt);
         console.log(`[tRPC] Retrying in ${delay}ms...`);
         await sleep(delay);
       }
