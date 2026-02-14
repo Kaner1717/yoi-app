@@ -33,18 +33,42 @@ console.log("[tRPC] HEALTH_URL:", HEALTH_URL);
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const wakeUpBackend = async (baseUrl: string): Promise<boolean> => {
+  try {
+    console.log('[tRPC] Waking up backend...');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const res = await fetch(`${baseUrl}/api/health`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    console.log('[tRPC] Wake-up response:', res.status);
+    return res.ok;
+  } catch (e) {
+    console.warn('[tRPC] Wake-up ping failed:', e instanceof Error ? e.message : e);
+    return false;
+  }
+};
+
+let backendAwake = false;
+
 const fetchWithRetry = async (
   url: RequestInfo | URL,
   options?: RequestInit,
-  maxRetries = 3,
-  baseDelay = 2000
+  maxRetries = 4,
+  baseDelay = 3000
 ): Promise<Response> => {
+  const urlStr = typeof url === 'string' ? url : url.toString();
+
+  if (!backendAwake && API_BASE_URL) {
+    const awake = await wakeUpBackend(API_BASE_URL);
+    if (awake) backendAwake = true;
+    else await sleep(2000);
+  }
+
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[tRPC] Fetch attempt ${attempt + 1}/${maxRetries + 1}:`, typeof url === 'string' ? url : url.toString());
-      console.log(`[tRPC] Method: ${options?.method || 'GET'}`);
+      console.log(`[tRPC] Fetch attempt ${attempt + 1}/${maxRetries + 1}:`, urlStr);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -60,6 +84,7 @@ const fetchWithRetry = async (
       
       clearTimeout(timeoutId);
       console.log('[tRPC] Response status:', response.status);
+      backendAwake = true;
       
       if (response.status === 429) {
         const delay = baseDelay * Math.pow(2, attempt);
@@ -74,6 +99,7 @@ const fetchWithRetry = async (
       if (response.status === 404 && attempt < maxRetries) {
         const delay = baseDelay * (attempt + 1);
         console.log(`[tRPC] Got 404, backend may be cold starting. Waiting ${delay}ms...`);
+        backendAwake = false;
         await sleep(delay);
         continue;
       }
@@ -82,10 +108,11 @@ const fetchWithRetry = async (
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       const isAbort = lastError.name === 'AbortError';
-      console.error(`[tRPC] Fetch attempt ${attempt + 1} failed:`, lastError.message, isAbort ? '(timeout)' : '');
+      console.warn(`[tRPC] Fetch attempt ${attempt + 1} failed:`, lastError.message, isAbort ? '(timeout)' : '');
+      backendAwake = false;
       
       if (attempt < maxRetries) {
-        const delay = isAbort ? baseDelay : baseDelay * Math.pow(2, attempt);
+        const delay = baseDelay * Math.pow(1.5, attempt);
         console.log(`[tRPC] Retrying in ${delay}ms...`);
         await sleep(delay);
       }

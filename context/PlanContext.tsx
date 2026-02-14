@@ -154,7 +154,8 @@ export const [PlanProvider, usePlan] = createContextHook(() => {
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(3000 * Math.pow(1.5, attemptIndex), 15000),
   });
 
   const generatePlan = useCallback(async (
